@@ -1,4 +1,3 @@
-// server.js
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -12,7 +11,7 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", 
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
@@ -23,11 +22,40 @@ io.on("connection", (socket) => {
   socket.on("join_room", (roomId) => {
     socket.join(roomId);
     console.log(`User ${socket.id} joined room ${roomId}`);
+    io.to(roomId).emit("room_update", { message: `User ${socket.id} joined.` });
   });
 
   socket.on("send_message", (data) => {
-    // data = { roomId, sender, message }
-    io.to(data.roomId).emit("receive_message", data);
+    const messageData = {
+      ...data,
+      timestamp: new Date().toISOString(),
+    };
+    io.to(data.roomId).emit("receive_message", messageData);
+  });
+
+  socket.on("private_message", (data) => {
+    const { recipientId, message, sender } = data;
+    const messageData = {
+      sender,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+    io.to(recipientId).emit("receive_private_message", messageData);
+    console.log(`Private message from ${sender} to ${recipientId}: ${message}`);
+  });
+
+  socket.on("announcement", (data) => {
+    const announcementData = {
+      message: data.message,
+      timestamp: new Date().toISOString(),
+    };
+    io.emit("receive_announcement", announcementData);
+    console.log(`Announcement: ${data.message}`);
+  });
+
+  socket.on("typing", (data) => {
+    const { roomId, user } = data;
+    socket.to(roomId).emit("user_typing", { user });
   });
 
   socket.on("disconnect", () => {
