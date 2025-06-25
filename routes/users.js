@@ -1,11 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../firebase.js");
-const verifyToken = require("../middleware/auth");
+// const verifyToken = require("../middleware/auth");
 
-// 1. Create user document after Firebase signup
-
-router.post("/signup", verifyToken, async (req, res) => {
+router.post("/signup", async (req, res) => {
   const { uid, name, email, tokens , swaps} = req.body;
 
   try {
@@ -24,8 +22,35 @@ router.post("/signup", verifyToken, async (req, res) => {
   }
 });
 
+router.put('/user-preferences', async (req, res) => {
+  const { uid, prefered_platforms, prefered_categories } = req.body;
+
+  if (!uid || !prefered_platforms || !prefered_categories) {
+    return res.status(400).json({ error: "UID, platforms, and categories are required" });
+  }
+
+  try {
+    const userRef = db.collection("users").doc(uid);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await userRef.update({
+      prefered_platforms,
+      prefered_categories,
+    });
+
+    res.json({ message: "User preferences updated successfully" });
+  }
+  catch (err) {
+    res.status(500).json({ error: "Failed to update user preferences" });
+  }
+});
+
 // 2. Get user by UID
-router.get("/:uid", verifyToken, async (req, res) => {
+router.get("/:uid", async (req, res) => {
   const uid = req.params.uid;
 
   try {
@@ -41,7 +66,7 @@ router.get("/:uid", verifyToken, async (req, res) => {
 });
 
 // 3. Update user wallet or coupons
-router.put("/wallet", verifyToken, async (req, res) => {
+router.put("/wallet", async (req, res) => {
   const { uid, wallet } = req.body;
 
   if (!uid) {
